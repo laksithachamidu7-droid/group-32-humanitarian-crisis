@@ -1,7 +1,52 @@
+using Microsoft.EntityFrameworkCore;
+using ReliefAI.Api.Data;
+using Microsoft.AspNetCore.Identity;
+using ReliefAI.Api.Models;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+var jwtKey = builder.Configuration["Jwt:SecretKey"]
+    ?? throw new InvalidOperationException("JWT SecretKey is not configured.");
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(jwtKey)),
+
+        ClockSkew = TimeSpan.FromMinutes(1)
+    };
+});
 builder.Services.AddOpenApi();
+
+// Database Connection
+builder.Services.AddDbContext<ReliefAIDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+    )
+);
 
 var app = builder.Build();
 
@@ -10,6 +55,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
