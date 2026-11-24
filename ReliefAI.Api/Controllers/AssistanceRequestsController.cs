@@ -26,9 +26,15 @@ public class AssistanceRequestsController : ControllerBase
     public async Task<IActionResult> CreateRequest(
         CreateAssistanceRequest request)
     {
-        var userId = int.Parse(
-            User.FindFirst(ClaimTypes.NameIdentifier)!.Value
-        );
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user authentication."
+            });
+        }
 
         var assistanceRequest = new AssistanceRequest
         {
@@ -46,7 +52,7 @@ public class AssistanceRequestsController : ControllerBase
             PeopleAffected = request.PeopleAffected,
             Description = request.Description,
             Status = "Pending",
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.AssistanceRequests.Add(assistanceRequest);
@@ -64,9 +70,15 @@ public class AssistanceRequestsController : ControllerBase
     [Authorize(Roles = "Victim")]
     public async Task<IActionResult> GetMyRequests()
     {
-        var userId = int.Parse(
-            User.FindFirst(ClaimTypes.NameIdentifier)!.Value
-        );
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user authentication."
+            });
+        }
 
         var requests = await _context.AssistanceRequests
             .Where(r => r.UserId == userId)
@@ -133,7 +145,9 @@ public class AssistanceRequestsController : ControllerBase
         "Completed"
     };
 
-        if (!allowedStatuses.Contains(request.Status))
+        if (string.IsNullOrWhiteSpace(request.Status) ||
+    !allowedStatuses.Contains(request.Status.Trim(),
+        StringComparer.OrdinalIgnoreCase))
         {
             return BadRequest(new
             {
@@ -141,7 +155,9 @@ public class AssistanceRequestsController : ControllerBase
             });
         }
 
-        assistanceRequest.Status = request.Status;
+        assistanceRequest.Status = allowedStatuses.First(
+    s => string.Equals(s, request.Status.Trim(),
+        StringComparison.OrdinalIgnoreCase));
 
         await _context.SaveChangesAsync();
 
