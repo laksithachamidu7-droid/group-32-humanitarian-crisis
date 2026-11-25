@@ -4,3 +4,19 @@ dist/
 .env
 .env.*
 !.env.example
+
+# .NET build files
+**/bin/
+**/obj/
+# Visual Studio temporary files
+.vs/
+**/.vs/
+*.user
+*.suo
+*.csproj.user
+
+# Build files
+bin/
+obj/
+**/bin/
+**/obj/
