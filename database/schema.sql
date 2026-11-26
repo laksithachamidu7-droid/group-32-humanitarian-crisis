@@ -58,7 +58,7 @@ CREATE TABLE Shelters (
     Latitude DECIMAL(10,7),
     Longitude DECIMAL(10,7),
     Capacity INT NOT NULL,
-    CurrentOccupancy INT DEFAULT 0
+    CurrentOccupancy INT NOT NULL DEFAULT 0
 );
 GO
 
@@ -128,4 +128,27 @@ CREATE TABLE AuditLogs (
     CreatedAt DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (UserId) REFERENCES Users(UserId)
 );
+GO
+-- Add CHECK Constraints
+
+ALTER TABLE Resources
+ADD CONSTRAINT CK_Resources_Quantity
+CHECK (Quantity >= 0);
+
+ALTER TABLE AssistanceRequests
+ADD CONSTRAINT CK_AssistanceRequests_PeopleAffected
+CHECK (PeopleAffected > 0);
+
+ALTER TABLE Shelters
+ADD CONSTRAINT CK_Shelters_Capacity
+CHECK (Capacity >= 0);
+
+ALTER TABLE Shelters
+ADD CONSTRAINT CK_Shelters_CurrentOccupancy
+CHECK (CurrentOccupancy >= 0 AND CurrentOccupancy <= Capacity);
+
+ALTER TABLE ResourceAllocations
+ADD CONSTRAINT CK_ResourceAllocations_Quantity
+CHECK (Quantity > 0);
+
 GO
