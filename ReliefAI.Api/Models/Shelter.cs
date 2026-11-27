@@ -17,5 +17,5 @@ public partial class Shelter
 
     public int Capacity { get; set; }
 
-    public int? CurrentOccupancy { get; set; }
+    public int CurrentOccupancy { get; set; }
 }
