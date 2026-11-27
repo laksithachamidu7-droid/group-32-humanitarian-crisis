@@ -9,9 +9,21 @@ namespace ReliefAI.Api.Controllers;
 [Authorize]
 public class TestAuthController : ControllerBase
 {
+    private readonly IWebHostEnvironment _environment;
+
+    public TestAuthController(IWebHostEnvironment environment)
+    {
+        _environment = environment;
+    }
+
     [HttpGet("profile")]
     public IActionResult GetProfile()
     {
+        if (!_environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
         return Ok(new
         {
             message = "You are successfully authenticated!",
