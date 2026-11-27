@@ -14,10 +14,14 @@ namespace ReliefAI.Api.Controllers;
 public class AssistanceRequestsController : ControllerBase
 {
     private readonly ReliefAIDbContext _context;
+    private readonly ILogger<AssistanceRequestsController> _logger;
 
-    public AssistanceRequestsController(ReliefAIDbContext context)
+    public AssistanceRequestsController(
+        ReliefAIDbContext context,
+        ILogger<AssistanceRequestsController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     // Victim can submit an assistance request
@@ -55,16 +59,36 @@ public class AssistanceRequestsController : ControllerBase
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.AssistanceRequests.Add(assistanceRequest);
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new
+        try
         {
-            message = "Assistance request submitted successfully!",
-            requestId = assistanceRequest.RequestId,
-            status = assistanceRequest.Status
-        });
+            _context.AssistanceRequests.Add(assistanceRequest);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Assistance request {RequestId} created by user {UserId}.",
+                assistanceRequest.RequestId,
+                userId);
+
+            return Ok(new
+            {
+                message = "Assistance request submitted successfully!",
+                requestId = assistanceRequest.RequestId,
+                status = assistanceRequest.Status
+            });
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to create assistance request for user {UserId}.",
+                userId);
+
+            return StatusCode(500, new
+            {
+                message = "Unable to submit the assistance request. Please try again later."
+            });
+        }
     }
     [HttpGet("my-requests")]
     [Authorize(Roles = "Victim")]
@@ -81,19 +105,23 @@ public class AssistanceRequestsController : ControllerBase
         }
 
         var requests = await _context.AssistanceRequests
-            .Where(r => r.UserId == userId)
-            .Select(r => new
-            {
-                r.RequestId,
-                r.HelpType,
-                r.Urgency,
-                r.Location,
-                r.PeopleAffected,
-                r.Description,
-                r.Status,
-                r.CreatedAt
-            })
-            .ToListAsync();
+    .AsNoTracking()
+    .Where(r => r.UserId == userId)
+    .OrderByDescending(r => r.CreatedAt)
+    .Select(r => new
+    {
+        r.RequestId,
+        r.HelpType,
+        r.Urgency,
+        r.Location,
+        r.Latitude,
+        r.Longitude,
+        r.PeopleAffected,
+        r.Description,
+        r.Status,
+        r.CreatedAt
+    })
+    .ToListAsync();
 
         return Ok(requests);
     }
@@ -102,21 +130,24 @@ public class AssistanceRequestsController : ControllerBase
     public async Task<IActionResult> GetAllRequests()
     {
         var requests = await _context.AssistanceRequests
-            .Include(r => r.User)
-            .Select(r => new
-            {
-                r.RequestId,
-                r.UserId,
-                UserName = r.User.FullName,
-                r.HelpType,
-                r.Urgency,
-                r.Location,
-                r.PeopleAffected,
-                r.Description,
-                r.Status,
-                r.CreatedAt
-            })
-            .ToListAsync();
+    .AsNoTracking()
+    .OrderByDescending(r => r.CreatedAt)
+    .Select(r => new
+    {
+        r.RequestId,
+        r.UserId,
+        UserName = r.User.FullName,
+        r.HelpType,
+        r.Urgency,
+        r.Location,
+        r.Latitude,
+        r.Longitude,
+        r.PeopleAffected,
+        r.Description,
+        r.Status,
+        r.CreatedAt
+    })
+    .ToListAsync();
 
         return Ok(requests);
     }
@@ -159,13 +190,34 @@ public class AssistanceRequestsController : ControllerBase
     s => string.Equals(s, request.Status.Trim(),
         StringComparison.OrdinalIgnoreCase));
 
-        await _context.SaveChangesAsync();
-
-        return Ok(new
+        try
         {
-            message = "Request status updated successfully!",
-            requestId = assistanceRequest.RequestId,
-            status = assistanceRequest.Status
-        });
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Assistance request {RequestId} status updated to {Status} by admin {AdminId}.",
+                assistanceRequest.RequestId,
+                assistanceRequest.Status,
+                User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            return Ok(new
+            {
+                message = "Request status updated successfully!",
+                requestId = assistanceRequest.RequestId,
+                status = assistanceRequest.Status
+            });
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to update status for assistance request {RequestId}.",
+                id);
+
+            return StatusCode(500, new
+            {
+                message = "Unable to update the request status. Please try again later."
+            });
+        }
     }
 }

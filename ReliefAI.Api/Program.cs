@@ -9,10 +9,18 @@ using Microsoft.IdentityModel.Tokens;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 var jwtKey = builder.Configuration["Jwt:SecretKey"]
     ?? throw new InvalidOperationException("JWT SecretKey is not configured.");
 
+if (Encoding.UTF8.GetByteCount(jwtKey) < 32)
+{
+    throw new InvalidOperationException(
+        "JWT SecretKey must be at least 32 bytes long."
+    );
+}
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
 var jwtAudience = builder.Configuration["Jwt:Audience"];
 
@@ -49,6 +57,7 @@ builder.Services.AddDbContext<ReliefAIDbContext>(options =>
 );
 
 var app = builder.Build();
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

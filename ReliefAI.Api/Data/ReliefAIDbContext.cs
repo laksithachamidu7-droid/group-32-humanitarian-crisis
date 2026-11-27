@@ -104,6 +104,10 @@ public partial class ReliefAIDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.Location).HasMaxLength(200);
             entity.Property(e => e.ResourceName).HasMaxLength(100);
+
+            // Updated: Default Quantity = 0
+            entity.Property(e => e.Quantity).HasDefaultValue(0);
+
             entity.Property(e => e.Unit).HasMaxLength(30);
         });
 
